@@ -37,6 +37,7 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
                 cookie := http.Cookie{
                     Name: Feature.Name,
                     Value: Value,
+                    MaxAge: Feature.Expire,
                 }
                 http.SetCookie(res, &cookie)
             }

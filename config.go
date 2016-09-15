@@ -11,6 +11,7 @@ import (
 type Feature struct {
     Name            string
     Persistent      bool
+    Expire          int
     ShareStrategy   *ShareStrategy `json:",omitempty"`
     FirstStrategy   *FirstStrategy `json:",omitempty"`
     QueryStrategy   *QueryStrategy `json:",omitempty"`
