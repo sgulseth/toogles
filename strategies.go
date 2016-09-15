@@ -20,7 +20,7 @@ func (self *ShareStrategy) Toggle(req *http.Request) bool {
 
 type FirstStrategy struct {
     First       int
-    Current     int
+    Current     int `json:"-"`
 }
 
 func (self *FirstStrategy) Toggle(req *http.Request) bool {
