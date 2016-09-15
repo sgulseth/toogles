@@ -35,7 +35,7 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
                     Value = "1"
                 }
                 cookie := http.Cookie{
-                    Name: Feature.Name,
+                    Name: "toogles-" + Feature.Name,
                     Value: Value,
                     MaxAge: Feature.Expire,
                 }
