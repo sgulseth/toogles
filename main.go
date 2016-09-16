@@ -14,6 +14,7 @@ import (
 func HandleToggles(res http.ResponseWriter, req *http.Request) {
     if req.URL.Path != "/" {
         res.WriteHeader(http.StatusNotFound)
+        fmt.Fprint(res, "404 page not found")
         return
     }
 
