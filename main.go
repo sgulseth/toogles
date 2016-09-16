@@ -114,6 +114,13 @@ func HandleFeatures(res http.ResponseWriter, req *http.Request) {
 }
 
 func HandleFeature(res http.ResponseWriter, req *http.Request) {
+    if isAuthed(req) == false {
+        res.WriteHeader(http.StatusUnauthorized)
+        fmt.Fprint(res, "")
+
+        return
+    }
+
     config := getConfig()
     if req.Method == http.MethodGet || req.Method == http.MethodPut {
         Query := req.URL.Query()
