@@ -12,6 +12,8 @@ import (
     "encoding/json"
 )
 
+var Port = GetEnv("PORT", "8080")
+
 func HandlerNotFound(res http.ResponseWriter, req *http.Request) {
     res.WriteHeader(http.StatusNotFound)
     fmt.Fprint(res, "404 page not found")
@@ -240,12 +242,6 @@ func HandleStats(res http.ResponseWriter, req *http.Request) {
 func main() {
     loadConfigFromRedis()
 
-    Port := os.Getenv("PORT")
-    if Port == "" {
-        Port = "8080"
-    }
-    log.Printf("App is listening on port: %s", Port)
-
     http.HandleFunc("/", HandleToggles)
     http.HandleFunc("/stats", HandleStats)
     http.HandleFunc("/health-check", HandleHealthCheck)
@@ -259,4 +255,6 @@ func main() {
     }
 
     server.ListenAndServe()
+
+    log.Printf("App is listening on port: %s", Port)
 }
