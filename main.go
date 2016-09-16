@@ -270,5 +270,12 @@ func main() {
     http.HandleFunc("/health-check", HandleHealthCheck)
     http.HandleFunc("/features", HandleFeatures)
     http.HandleFunc("/feature", HandleFeature)
-    log.Fatal(http.ListenAndServe(":8080", nil))
+
+    Port := os.Getenv("PORT")
+    if Port == "" {
+        Port = "8080"
+    }
+    log.Printf("App is listening on port: %s", Port)
+
+    log.Fatal(http.ListenAndServe(":" + Port, nil))
 }
