@@ -3,6 +3,7 @@ package main
 import (
     "os"
     "fmt"
+    "time"
     "strings"
     "bytes"
     "net/http"
@@ -17,10 +18,18 @@ func HandlerNotFound(res http.ResponseWriter, req *http.Request) {
 }
 
 func HandleToggles(res http.ResponseWriter, req *http.Request) {
+    defer req.Body.Close()
+
     if req.URL.Path != "/" {
         HandlerNotFound(res, req)
         return
     }
+
+    StatsIncrementConnections()
+
+    res.Header().Set("Connection", "Close")
+    res.Header().Set("Content-Type", "application/json")
+    res.Header().Set("Access-Control-Allow-Origin", "*")
 
     config := getConfig()
     var buffer bytes.Buffer
@@ -69,13 +78,8 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
         log.Fatal(err)
     }
 
-    res.Header().Set("Content-Type", "application/json")
-    res.Header().Set("Access-Control-Allow-Origin", "*")
-
     result := string(features[:])
     fmt.Fprintf(res, result)
-
-    StatsIncrementConnections()
 }
 
 func isAuthed(req *http.Request) bool {
@@ -91,6 +95,8 @@ func isAuthed(req *http.Request) bool {
 }
 
 func HandleFeatures(res http.ResponseWriter, req *http.Request) {
+    defer req.Body.Close()
+
     if isAuthed(req) == false {
         res.WriteHeader(http.StatusUnauthorized)
         fmt.Fprint(res, "")
@@ -119,6 +125,8 @@ func HandleFeatures(res http.ResponseWriter, req *http.Request) {
 }
 
 func HandleFeature(res http.ResponseWriter, req *http.Request) {
+    defer req.Body.Close()
+
     if isAuthed(req) == false {
         res.WriteHeader(http.StatusUnauthorized)
         fmt.Fprint(res, "")
@@ -229,48 +237,7 @@ func HandleStats(res http.ResponseWriter, req *http.Request) {
     fmt.Fprintf(res, string(statsBytes[:]))
 }
 
-var mux map[string]func(http.ResponseWriter, *http.Request)
-type myHandler struct{}
-
 func main() {
-    /*shareStrategy := ShareStrategy{
-        Share: 50,
-    }
-    dummyFeature1 := Feature{
-        Name: "half-n-half",
-        Persistent: true,
-        ShareStrategy: &shareStrategy,
-    }
-
-    firstStrategy := FirstStrategy{
-        First: 3,
-    }
-    dummyFeature2 := Feature{
-        Name: "first-users",
-        Persistent: true,
-        FirstStrategy: &firstStrategy,
-    }
-
-    userStrategy := QueryStrategy{
-        Key: "user-id",
-        Values: []string{"1234", "5678"},
-    }
-    dummyFeature3 := Feature{
-        Name: "users-ids",
-        Persistent: false,
-        QueryStrategy: &userStrategy,
-    }
-
-    config := Configuration{
-        Features: []Feature {
-            dummyFeature1,
-            dummyFeature2,
-            dummyFeature3,
-        },
-    }
-
-    setConfig(config)*/
-
     loadConfigFromRedis()
 
     Port := os.Getenv("PORT")
@@ -279,12 +246,17 @@ func main() {
     }
     log.Printf("App is listening on port: %s", Port)
 
-    h := http.NewServeMux()
-    h.HandleFunc("/", HandleToggles)
-    h.HandleFunc("/stats", HandleStats)
-    h.HandleFunc("/health-check", HandleHealthCheck)
-    h.HandleFunc("/features", HandleFeatures)
-    h.HandleFunc("/feature", HandleFeature)
+    http.HandleFunc("/", HandleToggles)
+    http.HandleFunc("/stats", HandleStats)
+    http.HandleFunc("/health-check", HandleHealthCheck)
+    http.HandleFunc("/features", HandleFeatures)
+    http.HandleFunc("/feature", HandleFeature)
 
-    http.ListenAndServe(":" + Port, h)
+    server := http.Server{
+        Addr: ":" + Port,
+        ReadTimeout: 5 * time.Second,
+        WriteTimeout: 5 * time.Second,
+    }
+
+    server.ListenAndServe()
 }
