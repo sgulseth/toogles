@@ -11,10 +11,14 @@ import (
     "encoding/json"
 )
 
+func HandlerNotFound(res http.ResponseWriter, req *http.Request) {
+    res.WriteHeader(http.StatusNotFound)
+    fmt.Fprint(res, "404 page not found")
+}
+
 func HandleToggles(res http.ResponseWriter, req *http.Request) {
     if req.URL.Path != "/" {
-        res.WriteHeader(http.StatusNotFound)
-        fmt.Fprint(res, "404 page not found")
+        HandlerNotFound(res, req)
         return
     }
 
@@ -225,6 +229,9 @@ func HandleStats(res http.ResponseWriter, req *http.Request) {
     fmt.Fprintf(res, string(statsBytes[:]))
 }
 
+var mux map[string]func(http.ResponseWriter, *http.Request)
+type myHandler struct{}
+
 func main() {
     /*shareStrategy := ShareStrategy{
         Share: 50,
@@ -266,17 +273,18 @@ func main() {
 
     loadConfigFromRedis()
 
-    http.HandleFunc("/", HandleToggles)
-    http.HandleFunc("/stats", HandleStats)
-    http.HandleFunc("/health-check", HandleHealthCheck)
-    http.HandleFunc("/features", HandleFeatures)
-    http.HandleFunc("/feature", HandleFeature)
-
     Port := os.Getenv("PORT")
     if Port == "" {
         Port = "8080"
     }
     log.Printf("App is listening on port: %s", Port)
 
-    log.Fatal(http.ListenAndServe(":" + Port, nil))
+    h := http.NewServeMux()
+    h.HandleFunc("/", HandleToggles)
+    h.HandleFunc("/stats", HandleStats)
+    h.HandleFunc("/health-check", HandleHealthCheck)
+    h.HandleFunc("/features", HandleFeatures)
+    h.HandleFunc("/feature", HandleFeature)
+
+    http.ListenAndServe(":" + Port, h)
 }
