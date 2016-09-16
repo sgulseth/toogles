@@ -113,6 +113,64 @@ func HandleFeatures(res http.ResponseWriter, req *http.Request) {
     }
 }
 
+func HandleFeature(res http.ResponseWriter, req *http.Request) {
+    if req.Method == http.MethodGet || req.Method == http.MethodPut {
+        Query := req.URL.Query()
+        name := Query.Get("name")
+
+        if name == "" {
+            res.WriteHeader(http.StatusNotFound)
+            fmt.Fprint(res, "")
+
+            return
+        }
+
+        config := getConfig()
+        var feature Feature
+        var featureIndex int
+
+        for i, _feature := range config.Features {
+            if _feature.Name == name {
+                feature = _feature
+                featureIndex = i
+                break
+            }
+        }
+
+        if &feature == nil {
+            res.WriteHeader(http.StatusNotFound)
+            fmt.Fprint(res, "")
+
+            return
+        }
+
+        if req.Method == http.MethodPut {
+            body, err := ioutil.ReadAll(req.Body)
+            if err != nil {
+                log.Fatal(err)
+            }
+
+            if err := json.Unmarshal(body, &feature); err != nil {
+                log.Fatal(err)
+            }
+        }
+
+        config.Features[featureIndex] = feature
+
+        saveConfigToRedis()
+
+        res.Header().Set("Content-Type", "application/json")
+        res.Header().Set("Access-Control-Allow-Origin", "*")
+
+        featureBytes, _ := json.Marshal(feature)
+        fmt.Fprintf(res, string(featureBytes[:]))
+    } else if req.Method == http.MethodPost {
+
+    }
+
+    fmt.Fprint(res, "")
+}
+
 func HandleHealthCheck(res http.ResponseWriter, req *http.Request) {
     fmt.Fprintf(res, "")
 }
@@ -171,5 +229,6 @@ func main() {
     http.HandleFunc("/stats", HandleStats)
     http.HandleFunc("/health-check", HandleHealthCheck)
     http.HandleFunc("/features", HandleFeatures)
+    http.HandleFunc("/feature", HandleFeature)
     log.Fatal(http.ListenAndServe(":8080", nil))
 }
