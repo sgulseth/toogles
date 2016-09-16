@@ -114,6 +114,7 @@ func HandleFeatures(res http.ResponseWriter, req *http.Request) {
 }
 
 func HandleFeature(res http.ResponseWriter, req *http.Request) {
+    config := getConfig()
     if req.Method == http.MethodGet || req.Method == http.MethodPut {
         Query := req.URL.Query()
         name := Query.Get("name")
@@ -125,7 +126,6 @@ func HandleFeature(res http.ResponseWriter, req *http.Request) {
             return
         }
 
-        config := getConfig()
         var feature Feature
         var featureIndex int
 
@@ -165,7 +165,40 @@ func HandleFeature(res http.ResponseWriter, req *http.Request) {
         featureBytes, _ := json.Marshal(feature)
         fmt.Fprintf(res, string(featureBytes[:]))
     } else if req.Method == http.MethodPost {
+        body, err := ioutil.ReadAll(req.Body)
+        if err != nil {
+            log.Fatal(err)
+        }
+        var feature Feature
+        if err := json.Unmarshal(body, &feature); err != nil {
+            log.Fatal(err)
+        }
 
+        var _feature *Feature = nil
+        for _, f := range config.Features {
+            if f.Name == feature.Name {
+                _feature = &f
+                break
+            }
+        }
+
+        if _feature != nil {
+            res.WriteHeader(http.StatusConflict)
+            fmt.Fprint(res, "Feature with the same name already exists: " + _feature.Name)
+
+            return
+        }
+
+        config.Features = append(config.Features, feature)
+
+        setConfig(config)
+        saveConfigToRedis()
+
+        res.Header().Set("Content-Type", "application/json")
+        res.Header().Set("Access-Control-Allow-Origin", "*")
+
+        featureBytes, _ := json.Marshal(feature)
+        fmt.Fprintf(res, string(featureBytes[:]))
     }
 
     fmt.Fprint(res, "")
