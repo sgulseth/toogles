@@ -23,7 +23,7 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
     for _,Feature := range config.Features {
         var Toggle bool;
         if Feature.Persistent {
-            cookie, err := req.Cookie(Feature.Name)
+            cookie, err := req.Cookie("toogles-" + Feature.Name)
 
             if err == nil {
                 Toggle = cookie.Value == "1"
