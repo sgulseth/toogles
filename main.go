@@ -85,8 +85,13 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
 }
 
 func isAuthed(req *http.Request) bool {
-    BearerToken := "Bearer " + os.Getenv("API_KEY")
-    Header := req.Headers["Authorization"]
+    apiKey := os.Getenv("API_KEY")
+    BearerToken := "Bearer " + apiKey
+    if len(req.Header["Authorization"]) == 0 {
+        return false
+    }
+
+    Header := req.Header["Authorization"][0]
 
     if apiKey == "" {
         log.Print("API_KEY not set, not allowed to update features")
