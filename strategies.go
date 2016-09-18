@@ -10,7 +10,7 @@ type Strategy interface {
 }
 
 type ShareStrategy struct {
-    Share       int
+    Share       int         `json:"share"`
 }
 
 func (self *ShareStrategy) Toggle(req *http.Request) bool {
@@ -19,8 +19,8 @@ func (self *ShareStrategy) Toggle(req *http.Request) bool {
 }
 
 type FirstStrategy struct {
-    First       int
-    Current     int `json:"-"`
+    First       int         `json:"first"`
+    Current     int         `json:"-"`
 }
 
 func (self *FirstStrategy) Toggle(req *http.Request) bool {
@@ -34,9 +34,9 @@ func (self *FirstStrategy) Toggle(req *http.Request) bool {
 }
 
 type QueryStrategy struct {
-    Key         string
-    Value       string
-    Values      []string
+    Key         string     `json:"key"`
+    Value       string     `json:"value"`
+    Values      []string   `json:"values"`
 }
 
 func (self *QueryStrategy) Toggle(req *http.Request) bool {

@@ -9,12 +9,14 @@ import (
 
 
 type Feature struct {
-    Name            string
-    Persistent      bool
-    Expire          int
-    ShareStrategy   *ShareStrategy `json:",omitempty"`
-    FirstStrategy   *FirstStrategy `json:",omitempty"`
-    QueryStrategy   *QueryStrategy `json:",omitempty"`
+    Id              string         `json:"id"`
+    Name            string         `json:"name"`
+    Description     string         `json:"description"`
+    Persistent      bool           `json:"persistent"`
+    Expire          int            `json:"expire"`
+    ShareStrategy   *ShareStrategy `json:"shareStrategy,omitempty"`
+    FirstStrategy   *FirstStrategy `json:"firstStrategy,omitempty"`
+    QueryStrategy   *QueryStrategy `json:"queryStrategy,omitempty"`
 }
 
 func (self *Feature) Toggle(req *http.Request) bool {
@@ -30,12 +32,7 @@ func (self *Feature) Toggle(req *http.Request) bool {
 }
 
 type Configuration struct {
-    Features    []Feature
-}
-
-type FeatureEnvelope struct {
-    StrategyType string
-    Msg          interface{}
+    Features    []Feature           `json:"features"`
 }
 
 var globalConfig Configuration;

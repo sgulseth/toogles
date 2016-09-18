@@ -85,18 +85,31 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
 }
 
 func isAuthed(req *http.Request) bool {
-    apiKey := os.Getenv("API_KEY")
-    Query := req.URL.Query()
+    BearerToken := "Bearer " + os.Getenv("API_KEY")
+    Header := req.Headers["Authorization"]
 
     if apiKey == "" {
         log.Print("API_KEY not set, not allowed to update features")
         return false
     }
 
-    return apiKey == Query.Get("key")
+    return BearerToken == Header
 }
 
-func HandleFeatures(res http.ResponseWriter, req *http.Request) {
+func HandleHealthCheck(res http.ResponseWriter, req *http.Request) {
+    fmt.Fprintf(res, "")
+}
+
+func HandleStats(res http.ResponseWriter, req *http.Request) {
+    stats = GetStats()
+
+    statsBytes, _ := json.Marshal(stats)
+    res.Header().Set("Content-Type", "application/json")
+    res.Header().Set("Access-Control-Allow-Origin", "*")
+    fmt.Fprintf(res, string(statsBytes[:]))
+}
+
+func HandleApiFeatures(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
     if isAuthed(req) == false {
@@ -126,7 +139,7 @@ func HandleFeatures(res http.ResponseWriter, req *http.Request) {
     }
 }
 
-func HandleFeature(res http.ResponseWriter, req *http.Request) {
+func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
     if isAuthed(req) == false {
@@ -136,12 +149,17 @@ func HandleFeature(res http.ResponseWriter, req *http.Request) {
         return
     }
 
+    res.Header().Set("Content-Type", "application/json")
+    res.Header().Set("Access-Control-Allow-Origin", "*")
+    res.Header().Set("Access-Control-Allow-Methods", "POST,PUT,GET")
+    res.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
     config := getConfig()
     if req.Method == http.MethodGet || req.Method == http.MethodPut {
         Query := req.URL.Query()
-        name := Query.Get("name")
+        id := Query.Get("id")
 
-        if name == "" {
+        if id == "" {
             res.WriteHeader(http.StatusNotFound)
             fmt.Fprint(res, "")
 
@@ -152,7 +170,7 @@ func HandleFeature(res http.ResponseWriter, req *http.Request) {
         var featureIndex int
 
         for i, _feature := range config.Features {
-            if _feature.Name == name {
+            if _feature.Id == id {
                 feature = _feature
                 featureIndex = i
                 break
@@ -181,9 +199,6 @@ func HandleFeature(res http.ResponseWriter, req *http.Request) {
 
         saveConfigToRedis()
 
-        res.Header().Set("Content-Type", "application/json")
-        res.Header().Set("Access-Control-Allow-Origin", "*")
-
         featureBytes, _ := json.Marshal(feature)
         fmt.Fprintf(res, string(featureBytes[:]))
     } else if req.Method == http.MethodPost {
@@ -211,32 +226,18 @@ func HandleFeature(res http.ResponseWriter, req *http.Request) {
             return
         }
 
+        feature.Id = slug(feature.Name)
+
         config.Features = append(config.Features, feature)
 
         setConfig(config)
         saveConfigToRedis()
 
-        res.Header().Set("Content-Type", "application/json")
-        res.Header().Set("Access-Control-Allow-Origin", "*")
-
         featureBytes, _ := json.Marshal(feature)
         fmt.Fprintf(res, string(featureBytes[:]))
+    } else {
+        fmt.Fprint(res, "")
     }
-
-    fmt.Fprint(res, "")
-}
-
-func HandleHealthCheck(res http.ResponseWriter, req *http.Request) {
-    fmt.Fprintf(res, "")
-}
-
-func HandleStats(res http.ResponseWriter, req *http.Request) {
-    stats = GetStats()
-
-    statsBytes, _ := json.Marshal(stats)
-    res.Header().Set("Content-Type", "application/json")
-    res.Header().Set("Access-Control-Allow-Origin", "*")
-    fmt.Fprintf(res, string(statsBytes[:]))
 }
 
 func main() {
@@ -245,8 +246,8 @@ func main() {
     http.HandleFunc("/", HandleToggles)
     http.HandleFunc("/stats", HandleStats)
     http.HandleFunc("/health-check", HandleHealthCheck)
-    http.HandleFunc("/features", HandleFeatures)
-    http.HandleFunc("/feature", HandleFeature)
+    http.HandleFunc("/api/features", HandleApiFeatures)
+    http.HandleFunc("/api/feature", HandleApiFeature)
 
     server := http.Server{
         Addr: ":" + Port,
