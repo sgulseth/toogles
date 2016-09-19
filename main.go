@@ -4,6 +4,7 @@ import (
     "os"
     "fmt"
     "time"
+    "sync"
     "strings"
     "bytes"
     "net/http"
@@ -12,7 +13,8 @@ import (
     "encoding/json"
 )
 
-var Port = GetEnv("PORT", "8080")
+var PortEnv = GetEnv("PORT", "8080")
+var CorsEnv = GetEnv("CORS", "*")
 
 func HandlerNotFound(res http.ResponseWriter, req *http.Request) {
     res.WriteHeader(http.StatusNotFound)
@@ -31,15 +33,15 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
 
     res.Header().Set("Connection", "Close")
     res.Header().Set("Content-Type", "application/json")
-    res.Header().Set("Access-Control-Allow-Origin", "*")
+    SetCorsHeaders(res, req, CorsEnv, "GET")
 
-    config := getConfig()
+    features := getFeatures()
     var buffer bytes.Buffer
 
-    for _,Feature := range config.Features {
+    for _,Feature := range features {
         var Toggle bool;
         if Feature.Persistent {
-            cookie, err := req.Cookie("toogles-" + Feature.Name)
+            cookie, err := req.Cookie("toogles-" + Feature.Id)
 
             if err == nil {
                 Toggle = cookie.Value == "1"
@@ -51,19 +53,21 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
                     Value = "1"
                 }
                 cookie := http.Cookie{
-                    Name: "toogles-" + Feature.Name,
+                    Name: "toogles-" + Feature.Id,
                     Value: Value,
                     MaxAge: Feature.Expire,
                 }
                 http.SetCookie(res, &cookie)
+
             }
         } else {
             Toggle = Feature.Toggle(req)
         }
 
         if Toggle {
-            buffer.WriteString(Feature.Name)
+            buffer.WriteString(Feature.Id)
             buffer.WriteString(",")
+            IncrFeatureStatsType(Feature.Id, "impressions")
         }
     }
 
@@ -74,14 +78,13 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
         return
     }
 
-    features, err := json.Marshal(strings.Split(featuresString, ","))
+    response, err := json.Marshal(strings.Split(featuresString, ","))
 
     if err != nil {
         log.Fatal(err)
     }
 
-    result := string(features[:])
-    fmt.Fprintf(res, result)
+    fmt.Fprintf(res, string(response[:]))
 }
 
 func isAuthed(req *http.Request) bool {
@@ -110,43 +113,76 @@ func HandleStats(res http.ResponseWriter, req *http.Request) {
 
     statsBytes, _ := json.Marshal(stats)
     res.Header().Set("Content-Type", "application/json")
-    res.Header().Set("Access-Control-Allow-Origin", "*")
+    SetCorsHeaders(res, req, CorsEnv, "GET")
+
     fmt.Fprintf(res, string(statsBytes[:]))
 }
 
 func HandleApiFeatures(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
+    res.Header().Set("Content-Type", "application/json")
+    SetCorsHeaders(res, req, CorsEnv, "GET")
+
+    if req.Method == http.MethodOptions {
+        fmt.Fprint(res, "")
+        return
+    }
+
     if isAuthed(req) == false {
         res.WriteHeader(http.StatusUnauthorized)
         fmt.Fprint(res, "")
 
         return
     }
-    config := getConfig()
-    if req.Method == http.MethodGet {
-        configBytes, _ := json.Marshal(config)
-        configJson := string(configBytes[:])
 
-        res.Header().Set("Content-Type", "application/json")
-        res.Header().Set("Access-Control-Allow-Origin", "*")
-        fmt.Fprintf(res, configJson)
-    } else if req.Method == http.MethodPost {
-        body, err := ioutil.ReadAll(req.Body)
-        if err != nil {
-            log.Fatal(err)
-        }
-        log.Print("Setting features")
-        log.Print(string(body))
-        setConfigString(string(body))
+    features := getFeatures()
+    featureBytes, _ := json.Marshal(features)
+    fmt.Fprintf(res, string(featureBytes[:]))
+}
 
-        saveConfigToRedis()
+func HandleApiFeaturesStats(res http.ResponseWriter, req *http.Request) {
+    defer req.Body.Close()
+
+    res.Header().Set("Content-Type", "application/json")
+    SetCorsHeaders(res, req, CorsEnv, "GET")
+
+    if req.Method == http.MethodOptions {
+        fmt.Fprint(res, "")
+
+        return
     }
+
+    if isAuthed(req) == false {
+        res.WriteHeader(http.StatusUnauthorized)
+        fmt.Fprint(res, "")
+
+        return
+    }
+
+    features := getFeatures()
+    stats := make([]FeatureStats, len(features))
+
+    for i, feature := range features {
+        stats[i] = getFeatureStats(feature)
+    }
+
+    json, _ := json.Marshal(stats)
+    fmt.Fprintf(res, string(json[:]))
 }
 
 func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
+    res.Header().Set("Content-Type", "application/json")
+    SetCorsHeaders(res, req, CorsEnv, "POST,PUT,GET,DELETE")
+
+    if req.Method == http.MethodOptions {
+        fmt.Fprint(res, "")
+
+        return
+    }
+
     if isAuthed(req) == false {
         res.WriteHeader(http.StatusUnauthorized)
         fmt.Fprint(res, "")
@@ -154,13 +190,8 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
         return
     }
 
-    res.Header().Set("Content-Type", "application/json")
-    res.Header().Set("Access-Control-Allow-Origin", "*")
-    res.Header().Set("Access-Control-Allow-Methods", "POST,PUT,GET")
-    res.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-    config := getConfig()
-    if req.Method == http.MethodGet || req.Method == http.MethodPut {
+    features := getFeatures()
+    if req.Method == http.MethodGet || req.Method == http.MethodPut || req.Method == http.MethodDelete {
         Query := req.URL.Query()
         id := Query.Get("id")
 
@@ -174,7 +205,7 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
         var feature Feature
         var featureIndex int
 
-        for i, _feature := range config.Features {
+        for i, _feature := range features {
             if _feature.Id == id {
                 feature = _feature
                 featureIndex = i
@@ -189,6 +220,16 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
             return
         }
 
+        if req.Method == http.MethodDelete {
+            fmt.Fprint(res, "{}")
+
+            features = append(features[:featureIndex], features[featureIndex+1:]...)
+            setFeatures(features)
+            saveFeaturesToRedis()
+            deleteFeatureStatsFromRedis(feature.Id)
+            return
+        }
+
         if req.Method == http.MethodPut {
             body, err := ioutil.ReadAll(req.Body)
             if err != nil {
@@ -200,9 +241,9 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
             }
         }
 
-        config.Features[featureIndex] = feature
+        features[featureIndex] = feature
 
-        saveConfigToRedis()
+        saveFeaturesToRedis()
 
         featureBytes, _ := json.Marshal(feature)
         fmt.Fprintf(res, string(featureBytes[:]))
@@ -216,9 +257,11 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
             log.Fatal(err)
         }
 
+        id := slug(feature.Name)
+
         var _feature *Feature = nil
-        for _, f := range config.Features {
-            if f.Name == feature.Name {
+        for _, f := range features {
+            if f.Id == id {
                 _feature = &f
                 break
             }
@@ -226,17 +269,17 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
 
         if _feature != nil {
             res.WriteHeader(http.StatusConflict)
-            fmt.Fprint(res, "Feature with the same name already exists: " + _feature.Name)
+            fmt.Fprint(res, "Feature with the same name/id already exists: " + _feature.Name)
 
             return
         }
 
-        feature.Id = slug(feature.Name)
+        feature.Id = id
 
-        config.Features = append(config.Features, feature)
+        features = append(features, feature)
 
-        setConfig(config)
-        saveConfigToRedis()
+        setFeatures(features)
+        saveFeaturesToRedis()
 
         featureBytes, _ := json.Marshal(feature)
         fmt.Fprintf(res, string(featureBytes[:]))
@@ -245,22 +288,41 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
     }
 }
 
-func main() {
-    loadConfigFromRedis()
-
+func startServer() {
     http.HandleFunc("/", HandleToggles)
     http.HandleFunc("/stats", HandleStats)
     http.HandleFunc("/health-check", HandleHealthCheck)
     http.HandleFunc("/api/features", HandleApiFeatures)
+    http.HandleFunc("/api/features/stats", HandleApiFeaturesStats)
     http.HandleFunc("/api/feature", HandleApiFeature)
 
     server := http.Server{
-        Addr: ":" + Port,
+        Addr: ":" + PortEnv,
         ReadTimeout: 5 * time.Second,
         WriteTimeout: 5 * time.Second,
     }
 
-    server.ListenAndServe()
+    log.Printf("App is listening on port: %s", PortEnv)
 
-    log.Printf("App is listening on port: %s", Port)
+    server.ListenAndServe()
+}
+
+func startStatsSync() {
+    t := time.NewTicker(time.Second * 5)
+
+    for {
+        syncStatsRedis()
+        <-t.C
+    }
+}
+
+func main() {
+    mutex = &sync.Mutex{}
+
+    loadFeaturesFromRedis()
+    syncStatsRedis()
+
+    go startStatsSync()
+
+    startServer()
 }
