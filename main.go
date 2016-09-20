@@ -269,7 +269,7 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
 
         if _feature != nil {
             res.WriteHeader(http.StatusConflict)
-            fmt.Fprint(res, "Feature with the same name/id already exists: " + _feature.Name)
+            fmt.Fprint(res, "{\"error\": \"Feature with the same name/id already exists: " + _feature.Name + "\" }")
 
             return
         }

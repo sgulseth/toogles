@@ -24,7 +24,7 @@ type FirstStrategy struct {
 }
 
 func (self *FirstStrategy) Toggle(feature *Feature, req *http.Request) bool {
-    if feature.GetStat("Users") < self.First {
+    if feature.GetStat("impressions") < self.First {
         return true
     }
 

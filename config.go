@@ -17,6 +17,7 @@ type Feature struct {
     Name            string           `json:"name"`
     Description     string           `json:"description"`
     Persistent      bool             `json:"persistent"`
+    Enabled         bool             `json:"enabled"`
     Expire          int              `json:"expire"`
     ShareStrategy   *ShareStrategy   `json:"shareStrategy,omitempty"`
     FirstStrategy   *FirstStrategy   `json:"firstStrategy,omitempty"`
@@ -27,19 +28,41 @@ type Feature struct {
 }
 
 func (self *Feature) Toggle(req *http.Request) bool {
-    if self.ShareStrategy != nil {
-        return self.ShareStrategy.Toggle(self, req)
-    } else if self.FirstStrategy != nil {
-        return self.FirstStrategy.Toggle(self, req)
-    } else if self.QueryStrategy != nil {
-        return self.QueryStrategy.Toggle(self, req)
-    } else if self.HeaderStrategy != nil {
-        return self.HeaderStrategy.Toggle(self, req)
-    } else if self.IPStrategy != nil {
-        return self.IPStrategy.Toggle(self, req)
+    if self.Enabled == false {
+        return false
     }
 
-    return false
+    if self.ShareStrategy != nil {
+        if self.ShareStrategy.Toggle(self, req) == false {
+            return false
+        }
+    }
+
+    if self.FirstStrategy != nil {
+        if self.FirstStrategy.Toggle(self, req) == false {
+            return false
+        }
+    }
+
+    if self.QueryStrategy != nil {
+        if self.QueryStrategy.Toggle(self, req) == false {
+            return false
+        }
+    }
+
+    if self.HeaderStrategy != nil {
+        if self.HeaderStrategy.Toggle(self, req) == false {
+            return false
+        }
+    }
+
+    if self.IPStrategy != nil {
+        if self.IPStrategy.Toggle(self, req) == false {
+            return false
+        }
+    }
+
+    return true
 }
 
 func (self *Feature) SetStat(stat string, val int64) {
