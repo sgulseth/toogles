@@ -33,12 +33,16 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
 
     res.Header().Set("Connection", "Close")
     res.Header().Set("Content-Type", "application/json")
-    SetCorsHeaders(res, req, CorsEnv, "GET")
+    SetCorsHeaders(res, req, CorsEnv, "GET", "Content-Type")
 
     features := getFeatures()
     var buffer bytes.Buffer
 
     for _,Feature := range features {
+        if Feature.Enabled == false {
+            continue
+        }
+
         var Toggle bool;
         if Feature.Persistent {
             cookie, err := req.Cookie("toogles-" + Feature.Id)
@@ -46,7 +50,7 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
             if err == nil {
                 Toggle = cookie.Value == "1"
             } else {
-                Toggle = Feature.Toggle(req)
+                Toggle = Feature.Toggle(res, req)
 
                 Value := "0"
                 if Toggle {
@@ -61,7 +65,7 @@ func HandleToggles(res http.ResponseWriter, req *http.Request) {
 
             }
         } else {
-            Toggle = Feature.Toggle(req)
+            Toggle = Feature.Toggle(res, req)
         }
 
         if Toggle {
@@ -113,7 +117,7 @@ func HandleStats(res http.ResponseWriter, req *http.Request) {
 
     statsBytes, _ := json.Marshal(stats)
     res.Header().Set("Content-Type", "application/json")
-    SetCorsHeaders(res, req, CorsEnv, "GET")
+    SetCorsHeaders(res, req, CorsEnv, "GET", "Content-Type")
 
     fmt.Fprintf(res, string(statsBytes[:]))
 }
@@ -122,7 +126,7 @@ func HandleApiFeatures(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
     res.Header().Set("Content-Type", "application/json")
-    SetCorsHeaders(res, req, CorsEnv, "GET")
+    SetCorsHeaders(res, req, CorsEnv, "GET", "Content-Type, Authorization")
 
     if req.Method == http.MethodOptions {
         fmt.Fprint(res, "")
@@ -145,7 +149,7 @@ func HandleApiFeaturesStats(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
     res.Header().Set("Content-Type", "application/json")
-    SetCorsHeaders(res, req, CorsEnv, "GET")
+    SetCorsHeaders(res, req, CorsEnv, "GET", "Content-Type, Authorization")
 
     if req.Method == http.MethodOptions {
         fmt.Fprint(res, "")
@@ -175,7 +179,7 @@ func HandleApiFeature(res http.ResponseWriter, req *http.Request) {
     defer req.Body.Close()
 
     res.Header().Set("Content-Type", "application/json")
-    SetCorsHeaders(res, req, CorsEnv, "POST,PUT,GET,DELETE")
+    SetCorsHeaders(res, req, CorsEnv, "POST,PUT,GET,DELETE", "Content-Type, Authorization")
 
     if req.Method == http.MethodOptions {
         fmt.Fprint(res, "")

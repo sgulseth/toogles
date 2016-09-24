@@ -13,51 +13,65 @@ import (
 
 
 type Feature struct {
-    Id              string           `json:"id"`
-    Name            string           `json:"name"`
-    Description     string           `json:"description"`
-    Persistent      bool             `json:"persistent"`
-    Enabled         bool             `json:"enabled"`
-    Expire          int              `json:"expire"`
-    ShareStrategy   *ShareStrategy   `json:"shareStrategy,omitempty"`
-    FirstStrategy   *FirstStrategy   `json:"firstStrategy,omitempty"`
-    QueryStrategy   *QueryStrategy   `json:"queryStrategy,omitempty"`
-    HeaderStrategy  *HeaderStrategy  `json:"headerStrategy,omitempty"`
-    IPStrategy      *IPStrategy      `json:"ipStrategy,omitempty"`
-    Stats           map[string]int64 `json:"-"`
+    Id                  string                      `json:"id"`
+    Name                string                      `json:"name"`
+    Description         string                      `json:"description"`
+    Persistent          bool                        `json:"persistent"`
+    Enabled             bool                        `json:"enabled"`
+    Expire              int                         `json:"expire"`
+    ShareStrategy       *ShareStrategy              `json:"shareStrategy,omitempty"`
+    FirstStrategy       *FirstStrategy              `json:"firstStrategy,omitempty"`
+    QueryStrategy       *QueryStrategy              `json:"queryStrategy,omitempty"`
+    HeaderStrategy      *HeaderStrategy             `json:"headerStrategy,omitempty"`
+    IPStrategy          *IPStrategy                 `json:"ipStrategy,omitempty"`
+    RefererStrategy     *RefererStrategy            `json:"refererStrategy,omitempty"`
+    RetargetStrategy    *RetargetStrategy           `json:"retargetStrategy,omitempty"`
+    Stats               map[string]int64            `json:"-"`
 }
 
-func (self *Feature) Toggle(req *http.Request) bool {
+func (self *Feature) Toggle(res http.ResponseWriter, req *http.Request) bool {
     if self.Enabled == false {
         return false
     }
 
     if self.ShareStrategy != nil {
-        if self.ShareStrategy.Toggle(self, req) == false {
+        if self.ShareStrategy.Toggle(self, res, req) == false {
             return false
         }
     }
 
     if self.FirstStrategy != nil {
-        if self.FirstStrategy.Toggle(self, req) == false {
+        if self.FirstStrategy.Toggle(self, res, req) == false {
             return false
         }
     }
 
     if self.QueryStrategy != nil {
-        if self.QueryStrategy.Toggle(self, req) == false {
+        if self.QueryStrategy.Toggle(self, res, req) == false {
             return false
         }
     }
 
     if self.HeaderStrategy != nil {
-        if self.HeaderStrategy.Toggle(self, req) == false {
+        if self.HeaderStrategy.Toggle(self, res, req) == false {
             return false
         }
     }
 
     if self.IPStrategy != nil {
-        if self.IPStrategy.Toggle(self, req) == false {
+        if self.IPStrategy.Toggle(self, res, req) == false {
+            return false
+        }
+    }
+
+    if self.RefererStrategy != nil {
+        if self.RefererStrategy.Toggle(self, res, req) == false {
+            return false
+        }
+    }
+
+    if self.RetargetStrategy != nil {
+        if self.RetargetStrategy.Toggle(self, res, req) == false {
             return false
         }
     }

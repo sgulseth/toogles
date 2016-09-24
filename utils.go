@@ -22,7 +22,7 @@ func slug(s string) string {
     return strings.Trim(slugRe.ReplaceAllString(strings.ToLower(s), "-"), "-")
 }
 
-func SetCorsHeaders(res http.ResponseWriter, req *http.Request, cors string, methods string) {
+func SetCorsHeaders(res http.ResponseWriter, req *http.Request, cors string, methods string, headers string) {
     if cors == "*" && len(req.Header["Referer"]) != 0 {
         referer, err := url.Parse(req.Header["Referer"][0])
         if err == nil {
@@ -36,7 +36,10 @@ func SetCorsHeaders(res http.ResponseWriter, req *http.Request, cors string, met
 
     res.Header().Set("Access-Control-Allow-Origin", cors)
     res.Header().Set("Access-Control-Allow-Methods", methods)
-    res.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+    if headers != "" {
+        res.Header().Set("Access-Control-Allow-Headers", headers)
+    }
 }
 
 func sliceContains(s []string, e string) bool {
