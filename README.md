@@ -8,7 +8,7 @@ Toogles, pronounced `/'tugels/`, aims to be a high performance self hosted featu
 
 Toogles requires two environment variables to be set when started
 
- * `REDIS_HOST`: Which host and port are redis running on. ie: `REDIS_HOST="127.0.0.1:6379"`.
+ * `REDIS_ADDR`: Which host and port are redis running on. ie: `REDIS_ADDR="127.0.0.1:6379"`.
  * `API_KEY`: The api key to manage and set new features through the [toogles-console](https://github.com/sgulseth/toogles-console).
 
  Optional environment variables:
@@ -20,7 +20,7 @@ Toogles requires two environment variables to be set when started
 
 ```
 docker pull quay.io/sgulseth/toogles
-docker run -e "REDIS_HOST=redis.something:6379" -e "API_KEY=..." -p 8080:8080 quay.io/sgulseth/toogles
+docker run -e "REDIS_ADDR=redis.something:6379" -e "API_KEY=..." -p 8080:8080 quay.io/sgulseth/toogles
 ```
 
 The app should now be listening on port 8080
