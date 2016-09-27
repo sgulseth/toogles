@@ -2,6 +2,8 @@ package main
 
 import (
     "net"
+    "time"
+    "strings"
     "strconv"
     "net/http"
     "math/rand"
@@ -139,6 +141,50 @@ func (self *RetargetStrategy) Toggle(feature *Feature, res http.ResponseWriter, 
             return true
         }
     }
+
+    return false
+}
+
+type UserRecurrencyStrategy struct {
+    Visits             int   `json:"visits"`
+    VisitInterval      int   `json:"visitInterval"`
+}
+
+func (self *UserRecurrencyStrategy) Toggle(feature *Feature, res http.ResponseWriter, req *http.Request) bool {
+    cookie, err := req.Cookie("toogles-" + feature.Id + "|visits")
+    visits := 1
+    now := time.Now().Unix()
+
+    if err == nil {
+        value := strings.Split(cookie.Value, "|")
+        if len(value) != 2 {
+            return false
+        }
+
+        visits64, _ := strconv.ParseInt(value[0], 10, 64)
+        visits = int(visits64)
+        lastVisit, _ := strconv.ParseInt(value[1], 10, 64)
+
+        diff := int(now - lastVisit)
+        if diff > self.VisitInterval {
+            visits += 1
+        }
+
+        if visits >= self.Visits {
+            return true
+        }
+    }
+
+    visitsString := strconv.Itoa(visits)
+    nowString := strconv.FormatInt(now, 10)
+
+
+    visitCookie := http.Cookie{
+        Name: "toogles-" + feature.Id + "|visits",
+        Value: visitsString + "|" + nowString,
+    }
+
+    http.SetCookie(res, &visitCookie)
 
     return false
 }
